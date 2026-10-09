@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>掼蛋 · 升级 计分器</title>
+<style>
+  :root{ --flip:.45s; }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    min-height:100vh;display:flex;flex-direction:column;
+    overflow:hidden;position:relative;
+    transition:background .5s ease,color .5s ease;
+  }
+  .title,.themes,.rank,.versus,.ctrls,.actions,.hint{
+    -webkit-user-select:none;user-select:none;}
+  .bg-decor{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+
+  .topbar{position:relative;z-index:3;display:flex;align-items:center;
+    justify-content:space-between;padding:18px 26px;gap:16px;flex-wrap:wrap;}
+  .title{font-size:18px;font-weight:700;letter-spacing:3px;opacity:.85;}
+  .themes{display:flex;gap:8px;flex-wrap:wrap;}
+  .themes button{font:inherit;font-size:13px;cursor:pointer;border:none;
+    padding:8px 16px;border-radius:999px;background:rgba(128,128,128,.15);
+    color:inherit;transition:all .25s ease;letter-spacing:1px;}
+  .themes button:hover{transform:translateY(-2px);}
+  .themes button.active{font-weight:700;}
+
+  .board{position:relative;z-index:2;flex:1;display:flex;align-items:center;
+    justify-content:center;gap:min(6vw,80px);padding:6px 4vw 16px;}
+  .side{display:flex;flex-direction:column;align-items:center;gap:16px;}
+  .team{font-size:clamp(15px,2.3vw,26px);font-weight:500;opacity:.5;
+    letter-spacing:3px;padding:4px 14px;border-radius:10px;outline:none;
+    cursor:text;max-width:38vw;white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;transition:opacity .25s,background .25s;
+    -webkit-user-select:text;user-select:text;position:relative;z-index:10;}
+  .team:hover,.team:focus{opacity:.95;background:rgba(128,128,128,.12);}
+  .rank-wrap{perspective:1200px;}
+  .rank{font-size:clamp(120px,26vw,400px);font-weight:900;line-height:.9;
+    cursor:pointer;font-variant-numeric:tabular-nums;transition:transform .18s;}
+  .rank:active{transform:scale(.94);}
+  .rank.flip{animation:flip var(--flip) ease;}
+  @keyframes flip{
+    0%{transform:rotateX(-90deg) scale(.9);opacity:.15;}
+    60%{transform:rotateX(12deg) scale(1.04);opacity:1;}
+    100%{transform:rotateX(0) scale(1);opacity:1;}
+  }
+  .side.left .rank{color:var(--c-left);}
+  .side.right .rank{color:var(--c-right);}
+  .ctrls{display:flex;gap:14px;}
+  .ctrls button{width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;
+    font-size:26px;font-weight:700;line-height:1;background:rgba(128,128,128,.16);
+    color:inherit;transition:transform .15s,background .25s;}
+  .ctrls button:hover{transform:translateY(-3px);}
+  .ctrls button:active{transform:scale(.9);}
+  .versus{position:relative;z-index:2;font-size:clamp(28px,5vw,66px);
+    font-weight:300;opacity:.4;align-self:center;}
+
+  .actions{position:relative;z-index:3;display:flex;align-items:center;
+    justify-content:center;gap:18px;flex-wrap:wrap;padding:14px 20px 24px;}
+  .actions button{font:inherit;font-size:14px;cursor:pointer;border:none;
+    padding:10px 22px;border-radius:999px;letter-spacing:1px;
+    background:rgba(128,128,128,.16);color:inherit;transition:all .25s;}
+  .actions button:hover{transform:translateY(-2px);}
+  .hint{font-size:12px;opacity:.45;letter-spacing:.5px;}
+
+  /* ===== 卡通主题 ===== */
+  body[data-theme="cartoon"]{background:linear-gradient(135deg,#FBF8EC 0%,#EEF0DA 100%);
+    color:#55553F;--c-left:#6E8257;--c-right:#E0A33C;}
+  body[data-theme="cartoon"] .title{color:#6E8257;}
+  body[data-theme="cartoon"] .themes button.active{background:#B4C27E;color:#fff;}
+  body[data-theme="cartoon"] .rank{text-shadow:0 7px 0 rgba(0,0,0,.06);}
+
+  /* ===== 合家欢主题 ===== */
+  body[data-theme="festive"]{background:radial-gradient(circle at 50% 32%,#C62828 0%,#9A0E0E 60%,#780808 100%);
+    color:#FFE9C7;--c-left:#FFD95A;--c-right:#FFF6E6;}
+  body[data-theme="festive"] .title{color:#FFE08A;}
+  body[data-theme="festive"] .themes button.active{background:#FFD95A;color:#9A0E0E;}
+  body[data-theme="festive"] .team{color:#FFE9C7;}
+  body[data-theme="festive"] .rank{text-shadow:0 4px 20px rgba(0,0,0,.4);}
+  body[data-theme="festive"] .versus{color:#FFD95A;opacity:.75;}
+  body[data-theme="festive"] .ctrls button{background:rgba(255,217,90,.18);}
+  /* ===== 艺术主题（孟菲斯 / 先锋） ===== */
+  body[data-theme="art"]{background:#EFE9DD;color:#1A1A1A;
+    --c-left:#E63946;--c-right:#2353C9;}
+  body[data-theme="art"] .title{color:#1A1A1A;font-weight:800;}
+  body[data-theme="art"] .themes button.active{background:#1A1A1A;color:#EFE9DD;}
+  body[data-theme="art"] .team{opacity:.65;font-weight:800;
+    text-transform:uppercase;letter-spacing:4px;}
+  body[data-theme="art"] .rank{font-style:italic;letter-spacing:-6px;}
+  body[data-theme="art"] .versus{font-weight:800;font-style:italic;opacity:.55;}
+  body[data-theme="art"] .ctrls button{background:#1A1A1A;color:#EFE9DD;}
+
+  /* ===== 极简科技主题 ===== */
+  body[data-theme="tech"]{background:#070A0F;color:#CBD5E1;
+    --c-left:#22D3EE;--c-right:#F43F5E;}
+  body[data-theme="tech"] .title,
+  body[data-theme="tech"] .rank,
+  body[data-theme="tech"] .versus{
+    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;}
+  body[data-theme="tech"] .title{color:#22D3EE;letter-spacing:4px;}
+  body[data-theme="tech"] .themes button{background:rgba(148,163,184,.12);}
+  body[data-theme="tech"] .themes button.active{background:#22D3EE;color:#070A0F;}
+  body[data-theme="tech"] .rank{font-weight:800;}
+  body[data-theme="tech"] .side.left .rank{text-shadow:0 0 32px rgba(34,211,238,.55);}
+  body[data-theme="tech"] .side.right .rank{text-shadow:0 0 32px rgba(244,63,94,.55);}
+  body[data-theme="tech"] .ctrls button{background:rgba(148,163,184,.14);}
+  body[data-theme="tech"] .team{letter-spacing:4px;
+    font-family:ui-monospace,Menlo,monospace;}
+
+  @media (max-width:620px){
+    .board{gap:14px;}
+    .ctrls button{width:46px;height:46px;font-size:22px;}
+    .topbar{justify-content:center;}
+  }
+</style>
+</head>
+<body data-theme="cartoon">
+  <div class="bg-decor"></div>
+
+  <header class="topbar">
+    <div class="title">掼蛋 · 升级 计分器</div>
+    <div class="themes">
+      <button data-set="cartoon">卡通</button>
+      <button data-set="festive">合家欢</button>
+      <button data-set="art">艺术</button>
+      <button data-set="tech">科技风</button>
+    </div>
+  </header>
+  <main class="board">
+    <section class="side left">
+      <div class="team" contenteditable="true" data-side="l" spellcheck="false">红队</div>
+      <div class="rank-wrap"><div class="rank" id="rankL" data-side="l">2</div></div>
+      <div class="ctrls">
+        <button data-side="l" data-dir="-1">−</button>
+        <button data-side="l" data-dir="1">＋</button>
+      </div>
+    </section>
+
+    <div class="versus">比</div>
+
+    <section class="side right">
+      <div class="team" contenteditable="true" data-side="r" spellcheck="false">蓝队</div>
+      <div class="rank-wrap"><div class="rank" id="rankR" data-side="r">2</div></div>
+      <div class="ctrls">
+        <button data-side="r" data-dir="-1">−</button>
+        <button data-side="r" data-dir="1">＋</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="actions">
+    <button id="reset">重置到 2 比 2</button>
+    <span class="hint">点大字 +1 · 点队名可改名 · 底部 − ＋ 翻页计分</span>
+  </footer>
+
+<script>
+  const LEVELS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+  const KEY = 'guandan-scoreboard-v1';
+  const def = {l:0, r:0, tl:'红队', tr:'蓝队', theme:'cartoon'};
+  let state = load();
+
+  function load(){
+    try{ return Object.assign({}, def, JSON.parse(localStorage.getItem(KEY)||'{}')); }
+    catch(e){ return Object.assign({}, def); }
+  }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+  const rankL = document.getElementById('rankL');
+  const rankR = document.getElementById('rankR');
+  const teams = document.querySelectorAll('.team');
+  function setRank(el, idx, animate){
+    el.textContent = LEVELS[idx];
+    if(animate){
+      el.classList.remove('flip');
+      void el.offsetWidth;      // 重启动画
+      el.classList.add('flip');
+    }
+  }
+
+  function change(side, dir){
+    const key = side === 'l' ? 'l' : 'r';
+    const next = Math.min(LEVELS.length-1, Math.max(0, state[key] + dir));
+    if(next === state[key]) return;
+    state[key] = next;
+    setRank(side === 'l' ? rankL : rankR, next, true);
+    save();
+  }
+
+  function applyTheme(name){
+    state.theme = name;
+    document.body.setAttribute('data-theme', name);
+    document.querySelectorAll('.themes button').forEach(b=>{
+      b.classList.toggle('active', b.dataset.set === name);
+    });
+    buildDecor(name);
+    save();
+  }
+
+  // 控制按钮
+  document.querySelectorAll('.ctrls button').forEach(btn=>{
+    btn.addEventListener('click', ()=> change(btn.dataset.side, +btn.dataset.dir));
+  });
+  // 点大字 +1
+  rankL.addEventListener('click', ()=> change('l', 1));
+  rankR.addEventListener('click', ()=> change('r', 1));
+  // 队名编辑
+  teams.forEach(t=>{
+    t.addEventListener('input', ()=>{
+      const txt = t.textContent.trim();
+      if(t.dataset.side === 'l') state.tl = txt; else state.tr = txt;
+      save();
+    });
+    t.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); t.blur(); } });
+  });
+  // 主题切换
+  document.querySelectorAll('.themes button').forEach(b=>{
+    b.addEventListener('click', ()=> applyTheme(b.dataset.set));
+  });
+  // 重置
+  document.getElementById('reset').addEventListener('click', ()=>{
+    state.l = 0; state.r = 0;
+    setRank(rankL, 0, true); setRank(rankR, 0, true);
+    save();
+  });
+  // 各主题背景装饰
+  function buildDecor(theme){
+    const d = document.querySelector('.bg-decor');
+    d.innerHTML = '';
+    const add = (css, html='')=>{
+      const el = document.createElement('div');
+      el.style.cssText = 'position:absolute;' + css;
+      if(html) el.innerHTML = html;
+      d.appendChild(el);
+    };
+    if(theme === 'cartoon'){
+      [['10%','18%',170,'#D9DBA0'],['80%','14%',210,'#B4C27E'],
+       ['78%','72%',250,'#D9DBA0'],['6%','78%',150,'#93A869'],
+       ['46%','88%',120,'#B4C27E']].forEach(([l,t,s,c])=>{
+        add(`left:${l};top:${t};width:${s}px;height:${s}px;background:${c};border-radius:50%;filter:blur(6px);opacity:.4;`);
+      });
+    }
+    else if(theme === 'festive'){
+      add('top:50%;left:50%;transform:translate(-50%,-50%);font-size:min(78vh,78vw);font-weight:900;color:rgba(255,214,90,.08);font-family:"STKaiti","KaiTi",serif;','福');
+      const words=['恭喜发财','大吉大利','发财','年年有余','招财进宝','吉'];
+      [['6%','14%',46,-8],['70%','9%',40,6],['11%','60%',38,-5],
+       ['76%','64%',52,8],['40%','7%',32,-3],['82%','40%',30,5],
+       ['4%','86%',40,-10],['55%','83%',44,4]].forEach((p,i)=>{
+        add(`left:${p[0]};top:${p[1]};font-size:${p[2]}px;font-weight:900;color:rgba(255,221,120,.16);white-space:nowrap;transform:rotate(${p[3]}deg);font-family:"STKaiti","KaiTi",serif;`, words[i%words.length]);
+      });
+    }
+    else if(theme === 'art'){
+      add('left:7%;top:68%;width:120px;height:120px;border-radius:50%;background:#FFC400;');
+      add('left:80%;top:12%;width:140px;height:140px;border-radius:50%;border:14px solid #2353C9;');
+      add('left:84%;top:70%;width:0;height:0;border-left:58px solid transparent;border-right:58px solid transparent;border-bottom:100px solid #E63946;transform:rotate(14deg);');
+      add('left:5%;top:9%;width:150px;height:150px;background-image:radial-gradient(#1A1A1A 3px,transparent 4px);background-size:26px 26px;opacity:.85;');
+      add('left:45%;top:3%;width:120px;height:60px;background:#2353C9;border-radius:0 0 120px 120px;');
+      add('left:38%;top:85%;width:220px;height:40px;','<svg width="220" height="40" viewBox="0 0 220 40"><path d="M2 20 Q20 2 38 20 T74 20 T110 20 T146 20 T182 20 T218 20" stroke="#1A1A1A" stroke-width="5" fill="none"/></svg>');
+      add('left:68%;top:84%;width:70px;height:70px;background:repeating-linear-gradient(45deg,#E63946 0 10px,transparent 10px 20px);transform:rotate(-10deg);');
+    }
+    else if(theme === 'tech'){
+      add('inset:0;background-image:linear-gradient(rgba(34,211,238,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.06) 1px,transparent 1px);background-size:46px 46px;');
+      const brk='width:46px;height:46px;border:2px solid rgba(34,211,238,.4);';
+      add(brk+'left:22px;top:22px;border-right:none;border-bottom:none;');
+      add(brk+'right:22px;top:22px;border-left:none;border-bottom:none;');
+      add(brk+'left:22px;bottom:22px;border-right:none;border-top:none;');
+      add(brk+'right:22px;bottom:22px;border-left:none;border-top:none;');
+    }
+  }
+
+  // 初始化
+  function init(){
+    teams[0].textContent = state.tl || '红队';
+    teams[1].textContent = state.tr || '蓝队';
+    setRank(rankL, state.l, false);
+    setRank(rankR, state.r, false);
+    applyTheme(state.theme || 'cartoon');
+  }
+  init();
+</script>
+</body>
+</html>
+
